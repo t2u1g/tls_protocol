@@ -9,6 +9,8 @@ src/algorithm/tls_hash.cpp
 src/algorithm/tls_crypto_aes.cpp
 src/win32/win32_sockets.cpp
 src/tls_record.cpp
+src/tls_handshake.cpp
+src/tls_common.cpp
 )
 
 add_executable(tls_main)
