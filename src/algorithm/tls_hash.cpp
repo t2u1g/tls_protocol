@@ -29,7 +29,11 @@ static inline uint32_t circular_right_shift(uint32_t x, size_t n) {
 }
 
 template <typename T>
-void sha_calculate(const void *p_data, size_t length, void (*pf)(const void *, T *), T *p_ctx) {
+void sha_calculate(
+    const void *p_data, size_t length,
+    void (*pf)(const void *, T *),
+    T *p_ctx) {
+    ;
     size_t i = 0;
     for (; i < length / 64; i++) {
         pf(&((const uint8_t *)p_data)[i * 64], p_ctx);
@@ -80,7 +84,9 @@ void sha1_calculate_512block(const void *p_data, sha1_context *p_ctx) {
             f = tmp_arr[1] ^ tmp_arr[2] ^ tmp_arr[3];
         } else if (i < 60) {
             k = 0x8F1BBCDC;
-            f = (tmp_arr[1] & tmp_arr[2]) | (tmp_arr[1] & tmp_arr[3]) | (tmp_arr[2] & tmp_arr[3]);
+            f = (tmp_arr[1] & tmp_arr[2])
+                | (tmp_arr[1] & tmp_arr[3])
+                | (tmp_arr[2] & tmp_arr[3]);
         } else {
             k = 0xCA62C1D6;
             f = tmp_arr[1] ^ tmp_arr[2] ^ tmp_arr[3];
@@ -145,7 +151,10 @@ void sha256_calculate_512block(const void *p_data, sha256_context *p_ctx) {
         uint32_t Sigma_0 = circular_right_shift(tmp_arr[0], 2)
                            ^ circular_right_shift(tmp_arr[0], 13)
                            ^ circular_right_shift(tmp_arr[0], 22);
-        uint32_t maj = (tmp_arr[0] & tmp_arr[1]) ^ (tmp_arr[0] & tmp_arr[2]) ^ (tmp_arr[1] & tmp_arr[2]);
+        uint32_t maj =
+            (tmp_arr[0] & tmp_arr[1])
+            ^ (tmp_arr[0] & tmp_arr[2])
+            ^ (tmp_arr[1] & tmp_arr[2]);
         uint32_t tmp_2 = Sigma_0 + maj;
         tmp_arr[7] = tmp_arr[6];
         tmp_arr[6] = tmp_arr[5];
@@ -172,7 +181,11 @@ size_t sha256_calculate(const void *p_data, size_t length, void *p_ret) {
     return 32;
 }
 
-uint8_t *str_cat_(const void *str1, size_t l1, const void *str2, size_t l2, void *buffer) {
+uint8_t *str_cat_(
+    const void *str1, size_t l1,
+    const void *str2, size_t l2,
+    void *buffer) {
+    ;
     uint8_t *p_ret;
     if (NULL == buffer) {
         p_ret = (uint8_t *)calloc(l1 + l2, 1);
@@ -184,8 +197,12 @@ uint8_t *str_cat_(const void *str1, size_t l1, const void *str2, size_t l2, void
     return p_ret;
 }
 
-size_t tls_hmac(HashAlgorithm type, const void *key, size_t key_length,
-                const void *p_data, size_t data_length, void *p_ret) {
+size_t tls_hmac(
+    HashAlgorithm type,
+    const void *key, size_t key_length,
+    const void *p_data, size_t data_length,
+    void *p_ret) {
+    ;
     size_t block_size = HashBlockSizeTable[type];
     size_t result_size = HashResultSizeTable[type];
     pf_hash pf = HashFnucTable[type];
@@ -213,24 +230,34 @@ size_t tls_hmac(HashAlgorithm type, const void *key, size_t key_length,
     return result_size;
 }
 
-void tls_prf(HashAlgorithm type,
-             const void *secret, size_t secret_length,
-             const void *label, size_t label_length,
-             const void *seed, size_t seed_length,
-             void *p_res, size_t res_length) {
+void tls_prf(
+    HashAlgorithm type,
+    const void *secret, size_t secret_length,
+    const void *label, size_t label_length,
+    const void *seed, size_t seed_length,
+    void *p_res, size_t res_length) {
+    ;
     size_t result_size = HashResultSizeTable[type];
-    uint8_t* prf_buff = (uint8_t*)malloc(label_length + seed_length + result_size);
-    
-    str_cat_(label, label_length, seed, seed_length, &prf_buff[result_size]);
+    uint8_t *prf_buff =
+        (uint8_t *)malloc(label_length + seed_length + result_size);
+
+    str_cat_(
+        label, label_length,
+        seed, seed_length,
+        &prf_buff[result_size]);
     seed_length += label_length;
-    tls_hmac(type, secret, secret_length, &prf_buff[result_size], seed_length, prf_buff);
-    //NOTE: now, the prf_buff is [A(1) = HMAC_hash(secret, A(0))] | [seed]
+    tls_hmac(
+        type,
+        secret, secret_length,
+        &prf_buff[result_size], seed_length,
+        prf_buff);
+    // NOTE: now, the prf_buff is [A(1) = HMAC_hash(secret, A(0))] | [seed]
     size_t generator_bytes = 0;
-    uint8_t *p_write_res = (uint8_t*)p_res;
+    uint8_t *p_write_res = (uint8_t *)p_res;
     uint8_t hmac_buff[128] = {0};
     assert(128 >= result_size);
     while (generator_bytes + result_size <= res_length) {
-        tls_hmac(type, secret, secret_length, 
+        tls_hmac(type, secret, secret_length,
                  prf_buff, seed_length + result_size,
                  &p_write_res[generator_bytes]);
         tls_hmac(type, secret, secret_length, prf_buff, result_size, hmac_buff);
@@ -238,7 +265,7 @@ void tls_prf(HashAlgorithm type,
         generator_bytes += result_size;
     }
     if (res_length - generator_bytes != 0) {
-        tls_hmac(type, secret, secret_length, 
+        tls_hmac(type, secret, secret_length,
                  prf_buff, seed_length + result_size,
                  hmac_buff);
         memcpy(&p_write_res[generator_bytes], hmac_buff, res_length - generator_bytes);

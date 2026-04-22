@@ -9,24 +9,26 @@ enum CiperType {
     Ciper_stream,
     Ciper_block,
     Ciper_aead
-}; // CBC AEAD STREAM alogrithm header implemention.
+};
 
 struct TLS_RECORD_CONTEXT {
     SOCKET send_socket;
     HashAlgorithm hash_algorithm;
     CiperType ciper_type;
-    BulkCipherAlgorithm bulk_ciper_algorithm;
 
-    uint8_t *ctx_buffer;
-    size_t send_seq_num, buffer_size;
+    uint8_t *ctx_buffer1, *ctx_buffer2;
+    size_t buffer_size;
+    size_t server_seq, client_seq;
 
     size_t mac_key_length;
-    size_t enc_key_length;
-    size_t fixed_iv_length;
     uint8_t *client_write_MAC_key, *server_write_MAC_key;
+    
+    size_t enc_key_length;
     uint8_t *client_write_key, *server_write_key;
-    uint8_t *client_write_iv, *server_write_iv;
+    
+    uint8_t client_write_iv[4], server_write_iv[4];
 
+    size_t tls_random_used, tls_random_max = 128;
     uint8_t tls_inner_system_random[128];
 };
 
@@ -47,9 +49,27 @@ struct TLS_RECORD_MESSAGE_HEADER {
     ProtocolVersion ver;
     uint16_t length;
 };
-struct TLS_RECORD_MESSAGE {
-    TLS_RECORD_MESSAGE_HEADER header;
-    uint8_t fragment[];
-};
+
+void tls_record_handle_error(size_t tls_error);
+
+// size_t tls_record_send_directly(
+//     TLS_RECORD_CONTEXT *p_ctx, 
+//     const TLS_RECORD_MESSAGE_HEADER *p_header, 
+//     void *p_data);
+
+// size_t tls_record_recv_directly(
+//     TLS_RECORD_CONTEXT *p_ctx, 
+//     TLS_RECORD_MESSAGE_HEADER *p_header, 
+//     void *p_data);
+
+size_t tls_record_send(
+    TLS_RECORD_CONTEXT *p_ctx, 
+    const TLS_RECORD_MESSAGE_HEADER *p_header, 
+    const void *p_data);
+
+size_t tls_record_recv(
+    TLS_RECORD_CONTEXT *p_ctx, 
+    TLS_RECORD_MESSAGE_HEADER *p_header, 
+    void *p_data);
 
 #endif
