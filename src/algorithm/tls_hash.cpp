@@ -241,16 +241,14 @@ void tls_prf(
     uint8_t *prf_buff =
         (uint8_t *)malloc(label_length + seed_length + result_size);
 
-    str_cat_(
-        label, label_length,
-        seed, seed_length,
-        &prf_buff[result_size]);
+    str_cat_(label, label_length,
+             seed, seed_length,
+             &prf_buff[result_size]);             
     seed_length += label_length;
-    tls_hmac(
-        type,
-        secret, secret_length,
-        &prf_buff[result_size], seed_length,
-        prf_buff);
+    tls_hmac(type,
+             secret, secret_length,
+             &prf_buff[result_size], seed_length,
+             prf_buff);
     // NOTE: now, the prf_buff is [A(1) = HMAC_hash(secret, A(0))] | [seed]
     size_t generator_bytes = 0;
     uint8_t *p_write_res = (uint8_t *)p_res;
