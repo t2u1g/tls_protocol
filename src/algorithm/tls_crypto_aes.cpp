@@ -174,7 +174,7 @@ void aes_128_decrypto(const uint8_t *data, const uint8_t *key, uint8_t *res) {
 
 #include <assert.h>
 void tls_aes_128_CBC_encrypto(
-    const void *key, const void *iv, 
+    const void *key, const void *iv,
     void *p_data, size_t data_length) {
     ;
     const size_t block_size = 16;
@@ -188,15 +188,14 @@ void tls_aes_128_CBC_encrypto(
     for (size_t i = 1; i < data_length / block_size; i++) {
         aes_plus(&p_write_res[(i - 1) * block_size],
                  &((const uint8_t *)p_data)[i * block_size], encrypto_buff);
-        aes_128_encrypto(
-            encrypto_buff, 
-            (const uint8_t *)key, 
-            &p_write_res[i * block_size]);
+        aes_128_encrypto(encrypto_buff,
+                         (const uint8_t *)key,
+                         &p_write_res[i * block_size]);
     }
 }
 
 void tls_aes_128_CBC_decrypto(
-    const void *key, const void *iv, 
+    const void *key, const void *iv,
     void *p_data, size_t data_length) {
     ;
     const size_t block_size = 16;
@@ -209,8 +208,8 @@ void tls_aes_128_CBC_decrypto(
     aes_plus((const uint8_t *)iv, decrypto_buff, p_write_res);
     for (size_t i = 1; i < data_length / block_size; i++) {
         aes_128_decrypto(
-            &((const uint8_t *)p_data)[i * block_size], 
-            (const uint8_t *)key, 
+            &((const uint8_t *)p_data)[i * block_size],
+            (const uint8_t *)key,
             decrypto_buff);
         aes_plus(&((const uint8_t *)p_data)[(i - 1) * block_size], decrypto_buff,
                  &p_write_res[i * block_size]);
@@ -227,7 +226,7 @@ static inline void reverse_bytes(void *p_byte, size_t length) {
 
 // nonce is an size 12 array, inner counter is uint32_t type.
 void tls_aes_128_CTR_encrypto(
-    const void *key, const void *nonce, 
+    const void *key, const void *nonce,
     void *p_data, size_t data_length) {
     ;
     const size_t block_size = 16;
@@ -245,7 +244,7 @@ void tls_aes_128_CTR_encrypto(
         *(uint32_t *)&encrypto_buff[nonce_size] = (i + 1) % UINT32_MAX;
         reverse_bytes(&encrypto_buff[nonce_size], sizeof(uint32_t));
         aes_128_encrypto(encrypto_buff, (const uint8_t *)key, encrypto_buff);
-        const size_t xor_size = 
+        const size_t xor_size =
             (i == data_length / block_size ? data_length % block_size : block_size);
         for (size_t j = 0; j < xor_size; j++) {
             p_write_res[i * block_size + j] ^= encrypto_buff[j];
@@ -254,7 +253,7 @@ void tls_aes_128_CTR_encrypto(
 }
 
 void tls_aes_128_CTR_decrypto(
-    const void *key, const void *nonce, 
+    const void *key, const void *nonce,
     void *p_data, size_t data_length) {
     ;
     tls_aes_128_CTR_encrypto(key, nonce, p_data, data_length);
@@ -354,18 +353,19 @@ static inline void ghash(
 // nonce is an size 12 array.
 void tls_aes_128_GCM_encrypto(
     const void *key, const void *nonce,
-    const void *auth, size_t auth_length, 
-    void *p_data, size_t data_length, 
+    const void *auth, size_t auth_length,
+    void *p_data, size_t data_length,
     void *auth_tag) {
     ;
     tls_aes_128_CTR_encrypto(key, nonce, p_data, data_length);
     ghash(key, auth, auth_length, p_data, data_length, auth_tag);
 }
 
+// if returns -1, then auth data failed.
 size_t tls_aes_128_GCM_decrypto(
     const void *key, const void *nonce,
-    const void *auth, size_t auth_length, 
-    void *p_data, size_t data_length, 
+    const void *auth, size_t auth_length,
+    void *p_data, size_t data_length,
     const void *auth_tag) {
     ;
     uint8_t auth_tag_buff[16] = {0};
