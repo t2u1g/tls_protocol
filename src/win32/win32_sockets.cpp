@@ -1,12 +1,25 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
+
 #include <WinSock2.h>
+#include <bcrypt.h>
 
 #pragma comment(lib, "ws2_32.lib")
+#pragma comment(lib, "Bcrypt.lib")
 
 #include "win32_sockets.h"
 
+// get length-bytes random to fill p_rand buff.
+void win32get_random(void* p_rand, size_t length) {
+    BCRYPT_SUCCESS(BCryptGenRandom(
+        NULL, (PUCHAR)p_rand, length,
+        BCRYPT_USE_SYSTEM_PREFERRED_RNG
+    ));
+}
+
+static size_t sockets_count = 0;
 SOCKET win32sockets_open(const char *ip, size_t port) {
     WSADATA wsaData;                      
     WORD wVersion = MAKEWORD(2, 2);
@@ -18,7 +31,7 @@ SOCKET win32sockets_open(const char *ip, size_t port) {
 
     ret = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP); 
     if (ret == INVALID_SOCKET) {
-        printf("socket failed \n");
+        printf("socket create failed \n");
         WSACleanup();
         return ret;
     }
@@ -30,41 +43,60 @@ SOCKET win32sockets_open(const char *ip, size_t port) {
     
     int nRet = connect(ret, (sockaddr *)&addrServer, sizeof(addrServer));
     if (nRet == SOCKET_ERROR) {
-        printf("connect error \n");
+        printf("connect failed \n");
         closesocket(ret);
         WSACleanup();
         return 0;
     }
+    sockets_count++;
     return ret;
 }
 
+static const timeval win32socket_timeout_val = { 10, 0 };
 size_t win32sockets_send(SOCKET sock, const void *p_send, size_t length) {
-    size_t send_bytes = send(sock, (const char*)p_send, length, 0);
-    while(send_bytes < length) {
-        size_t inner_send = send(sock, &((const char*)p_send)[send_bytes], length - send_bytes, 0);
-        if ((size_t)-1 == inner_send) {
+    fd_set set_;
+    FD_ZERO(&set_);
+    FD_SET(sock, &set_);
+    const char *p_send_ = (const char*)p_send;
+    size_t send_bytes = 0;
+    do {
+        int select_ret = select(0, NULL, &set_, NULL, &win32socket_timeout_val);
+        if (select_ret <= 0) {
+            return (size_t)-1; // if equal 0, timeout; if equal -1, SOCKET_ERROR.
+        }
+        int send_ret = send(sock, &p_send_[send_bytes], length - send_bytes, 0);
+        if (SOCKET_ERROR == send_ret) {
             return (size_t)-1;
         }
-        send_bytes += inner_send;
-    }
-    return send_bytes;
-}
+        send_bytes += (size_t)send_ret;
+    } while (send_bytes < length);
+} 
 
-size_t win32sockets_recv(SOCKET sock, void *p_recv, size_t max_length) {
-    size_t recv_bytes = recv(sock, (char*)p_recv, max_length, 0);
-    while (recv_bytes < max_length) {
-        size_t inner_recv = recv(sock, &((char*)p_recv)[recv_bytes], max_length - recv_bytes, 0);
-        if ((size_t)-1 == inner_recv) {
+size_t win32sockets_recv(SOCKET sock, void *p_recv, size_t length) {
+    fd_set set_;
+    FD_ZERO(&set_);
+    FD_SET(sock, &set_);
+    char *p_recv_ = (char*)p_recv;
+    size_t recv_bytes = 0;
+    do {
+        int select_ret = select(0, &set_, NULL, NULL, &win32socket_timeout_val);
+        if (select_ret <= 0) {
+            return (size_t)-1; // if equal 0, timeout; if equal -1, SOCKET_ERROR.
+        }
+        int recv_ret = recv(sock, &p_recv_[recv_bytes], length - recv_bytes, 0);
+        if (SOCKET_ERROR == recv_ret) {
             return (size_t)-1;
         }
-        recv_bytes += inner_recv;
-    }
-    return recv_bytes;
+        recv_bytes += (size_t)recv_ret;
+    } while (recv_bytes < length);
 }
 
 void win32sockets_close(SOCKET sock) {
     if (INVALID_SOCKET != sock) {
         closesocket(sock);
     }
-    WSACleanup();
+    sockets_count--;
+    if (0 == sockets_count) {
+        WSACleanup();
+    }
 }

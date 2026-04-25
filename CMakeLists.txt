@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(MAIN_FILES
 src/algorithm/tls_hash.cpp
 src/algorithm/tls_crypto_aes.cpp
+src/algorithm/tls_cert.cpp
 src/win32/win32_sockets.cpp
 src/tls_record.cpp
 src/tls_handshake.cpp
