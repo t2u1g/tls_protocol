@@ -75,6 +75,61 @@ size_t tls_aes_128_GCM_decrypto(
     const void *auth_tag);
 
 // certification defines and consts.
+// cert ASN.1 language support:
+enum ASN_FRAG_TYPE : uint8_t {
+    ASN_RESERVE = 0x00,
+    ASN_INTEGER = 0x02,
+    ASN_BITSTRING = 0x03,
+    ASN_OBJECT_IDENTIFIER = 0x06,
+    ASN_SEQUENCE = 0x10,
+};
+enum ASN_FRAG_TAG_TYPE : uint8_t {
+    ASN_Universal = 0x00,
+    ASN_Application = 0x40,
+    ASN_Context = 0x80,
+    ASN_Private = 0xC0
+};
+
+struct ASN_FRAG_TAG {
+    ASN_FRAG_TAG_TYPE tag_type;
+    uint8_t tag_number;
+    bool is_constru;
+};
+struct ASN_FRAG {
+    ASN_FRAG_TAG tag;
+    ASN_FRAG_TYPE type;
+    size_t length;
+    const uint8_t *p_frag_data;
+};
+
+// cert support
+struct CERT_UNPACK {
+    ASN_FRAG tbs_sign_alg;
+    ASN_FRAG issuer;
+    ASN_FRAG valid;
+    ASN_FRAG subject;
+    ASN_FRAG pub_key_info;
+    ASN_FRAG extens;
+    ASN_FRAG sign_val;
+};
+
+struct ASN_OID {
+    uint32_t oid_val[16];
+    size_t oid_num;
+};
+const ASN_OID sha1WithRSAEncryption {
+    {1, 2, 840, 113549, 1, 1, 5},
+    7
+};
+const ASN_OID sha256WithRSAEncryption {
+    {1, 2, 840, 113549, 1, 1, 11},
+    7
+};
+const ASN_OID rsaEncryption {
+    {1, 2, 840, 113549, 1, 1, 1},
+    7
+};
+
 
 
 #endif
