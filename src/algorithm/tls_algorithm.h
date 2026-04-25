@@ -74,5 +74,7 @@ size_t tls_aes_128_GCM_decrypto(
     void *p_data, size_t data_length, 
     const void *auth_tag);
 
+// certification defines and consts.
+
 
 #endif

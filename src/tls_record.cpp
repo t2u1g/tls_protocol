@@ -11,6 +11,12 @@ static inline void reverse_bytes(void *p_byte, size_t length) {
     }
 }
 
+static inline void reverse_record_head(void *p_head) {
+    TLS_RECORD_MESSAGE_HEADER *p_head_ = 
+        (TLS_RECORD_MESSAGE_HEADER*)p_head;
+    reverse_bytes(&p_head_->length, sizeof(uint16_t));
+}
+
 // swap ctx_buff on record-context
 static inline void swap_pointer(TLS_RECORD_CONTEXT *p_ctx) {
     uint8_t *tp = p_ctx->ctx_buffer1;
@@ -19,7 +25,7 @@ static inline void swap_pointer(TLS_RECORD_CONTEXT *p_ctx) {
 }
 
 // dst and src is restrict pointer.
-static inline void write_reverse(void *p_dst, const void *p_src, size_t size) {
+static inline void write_rvs_bytes(void *p_dst, const void *p_src, size_t size) {
     if (p_dst != p_src) {
         memcpy(p_dst, p_src, size);
     }
@@ -49,16 +55,15 @@ size_t tls_record_send_directly(
     uint16_t length = p_header->length;
     TLS_RECORD_MESSAGE_HEADER t_header;
     memcpy(&t_header, p_header, sizeof(TLS_RECORD_MESSAGE_HEADER));
-    reverse_bytes(&t_header.length, sizeof(uint16_t));
-    size_t ret =
-        win32sockets_send(p_ctx->send_socket,
-                          &t_header, sizeof(TLS_RECORD_MESSAGE_HEADER));
+    reverse_record_head(&t_header);
+
+    size_t ret = win32sockets_send(p_ctx->send_socket,
+                                   &t_header, sizeof(TLS_RECORD_MESSAGE_HEADER));
     if ((size_t)-1 != ret) {
         ret = win32sockets_send(p_ctx->send_socket, p_data, length);
     }
     if ((size_t)-1 == ret) {
-        // handle socket-send data failed error.
-        tls_record_handle_error(0);
+        tls_record_handle_error(0); // SOCKET_ERROR or timeout.
     }
     return ret;
 }
@@ -68,33 +73,25 @@ size_t tls_record_recv_directly(
     void *p_data) {
     ;
     size_t read_max_bytes = p_header->length;
-    if (read_max_bytes < (1 << 14)) {
+    if (read_max_bytes < (1 << 14) + 2048) {
         return 0; // buffer not enough big to save message.
     }
 
-    size_t ret =
-        win32sockets_recv(
-            p_ctx->send_socket,
-            p_header, sizeof(TLS_RECORD_MESSAGE_HEADER));
+    size_t ret = win32sockets_recv(p_ctx->send_socket,
+                                   p_header, sizeof(TLS_RECORD_MESSAGE_HEADER));
     if ((size_t)-1 == ret) {
-        // handle socket-recv data failed error.
-        tls_record_handle_error(1);
+        tls_record_handle_error(0); // SOCKET_ERROR or timeout.
         return ret;
     }
-    reverse_bytes(&p_header->length, sizeof(uint16_t));
-    if (read_max_bytes < p_header->length) {
-        // read-buffer too small.
-        tls_record_handle_error(3);
-        // NOTE: if length error, then read packet and throws away it.
-        win32sockets_recv(
-            p_ctx->send_socket,
-            p_ctx->ctx_buffer2, p_header->length);
-        return (size_t)-1;
-    }
+    reverse_record_head(p_header);
+    if ((1 << 14) + 2048 < p_header->length){
+        tls_record_handle_error(0);
+        return (size_t)-1; // invalid length recved in record header.
+    } 
+
     ret = win32sockets_recv(p_ctx->send_socket, p_data, p_header->length);
     if ((size_t)-1 == ret) {
-        // handle socket-recv data failed error.
-        tls_record_handle_error(1);
+        tls_record_handle_error(0); // SOCKET_ERROR or timeout.
     }
     return ret;
 }
@@ -108,13 +105,11 @@ size_t tls_record_hmac(
     uint8_t *p_buff = p_ctx->ctx_buffer2;
     size_t offset = 0;
 
-    write_reverse(&p_buff[offset], &send_seq_num, sizeof(uint64_t));
+    write_rvs_bytes(&p_buff[offset], &send_seq_num, sizeof(uint64_t));
     offset += sizeof(uint64_t);
 
-    TLS_RECORD_MESSAGE_HEADER *p_header_ =
-        (TLS_RECORD_MESSAGE_HEADER *)p_buff;
     memcpy(&p_buff[offset], p_header, sizeof(TLS_RECORD_MESSAGE_HEADER));
-    write_reverse(&p_header_->length, &p_header_->length, sizeof(uint16_t));
+    reverse_record_head(&p_buff[offset]);
     offset += sizeof(TLS_RECORD_MESSAGE_HEADER);
 
     memcpy(&p_buff[offset], p_ctx->ctx_buffer1, p_header->length);
@@ -227,11 +222,9 @@ static inline void aead_get_auth_data(
     const TLS_RECORD_MESSAGE_HEADER *p_header, 
     uint8_t* auth_data) {
     ;
-    write_reverse(auth_data, &seq, sizeof(uint64_t));
+    write_rvs_bytes(auth_data, &seq, sizeof(uint64_t));
     memcpy(&auth_data[sizeof(uint64_t)], p_header, sizeof(TLS_RECORD_MESSAGE_HEADER));
-    TLS_RECORD_MESSAGE_HEADER *p_header_ =
-        (TLS_RECORD_MESSAGE_HEADER *)&auth_data[sizeof(uint64_t)];
-    reverse_bytes(&p_header_->length, sizeof(uint16_t));
+    reverse_record_head(&auth_data[sizeof(uint64_t)]);
 }
 
 size_t tls_record_pack_aead(
@@ -302,11 +295,39 @@ size_t tls_record_send(
         return 0;
     }
     if (Ciper_stream == p_ctx->ciper_type) {
-        tls_record_send_directly(p_ctx, p_header, p_data);
+        return tls_record_send_directly(p_ctx, p_header, p_data);
     } else {
         memcpy(p_ctx->ctx_buffer1, p_data, data_length);
+        TLS_RECORD_MESSAGE_HEADER send_head;
+        memcpy(&send_head, p_header, sizeof(TLS_RECORD_MESSAGE_HEADER));
+
+        size_t frag_sz = 0;
+        if (Ciper_block == p_ctx->ciper_type) {
+            frag_sz = tls_record_pack_block(p_ctx, p_header);
+        } else if (Ciper_block == p_ctx->ciper_type){
+            frag_sz = tls_record_pack_aead(p_ctx, p_header);
+        }
+        if (frag_sz > (1 << 14) + 2048) {
+            return 0; // after encrypto and compress, too long result length.
+        }
+        uint16_t length = (uint16_t)frag_sz;
+        write_rvs_bytes(&send_head.length, &length, sizeof(uint16_t));
+        return tls_record_send_directly(p_ctx, &send_head, p_ctx->ctx_buffer2);
     }
 }
-size_t tls_record_recv(TLS_RECORD_CONTEXT *p_ctx, void *p_data, size_t data_length) {
-    ; // do likely thingwith record_send().
+size_t tls_record_recv(
+    TLS_RECORD_CONTEXT *p_ctx, 
+    TLS_RECORD_MESSAGE_HEADER* p_header, void *p_data) {
+    ; // do likely thingwith tls_record_send().
+    size_t data_length = p_header->length;
+    if (data_length < (1 << 14)) {
+        return 0;
+    }
+    if (Ciper_stream == p_ctx->ciper_type) {
+        return tls_record_recv_directly(p_ctx, p_header, p_data);
+    } else if (Ciper_block == p_ctx->ciper_type){
+
+    } else {
+
+    } // aead_cipher.
 }
