@@ -26,9 +26,7 @@ static inline void swap_pointer(TLS_RECORD_CONTEXT *p_ctx) {
 
 // dst and src is restrict pointer.
 static inline void write_rvs_bytes(void *p_dst, const void *p_src, size_t size) {
-    if (p_dst != p_src) {
-        memcpy(p_dst, p_src, size);
-    }
+    memcpy(p_dst, p_src, size);
     reverse_bytes(p_dst, size);
 }
 
