@@ -3,15 +3,9 @@
 
 #include <stdint.h>
 
-size_t hash_null_func(
-    const void *p_data, size_t length, 
-    void *p_ret);
-size_t sha1_calculate(
-    const void *p_data, size_t length, 
-    void *p_ret);
-size_t sha256_calculate(
-    const void *p_data, size_t length, 
-    void *p_ret);
+size_t hash_null_func(const void *p_data, size_t length, void *p_ret);
+size_t sha1_calculate(const void *p_data, size_t length, void *p_ret);
+size_t sha256_calculate(const void *p_data, size_t length, void *p_ret);
 
 // hash algorithm arguments.
 typedef size_t (*pf_hash)(const void *, size_t, void *);
@@ -39,40 +33,25 @@ const pf_hash HashFnucTable[7] = {
     hash_null_func  // sha 256
 };
 
-uint8_t *str_cat_(
-    const void *str1, size_t l1, 
-    const void *str2, size_t l2, 
-    void *buffer);
-size_t tls_hmac(
-    HashAlgorithm type, 
-    const void *key, size_t key_length,
-    const void *p_data, size_t data_length, 
-    void *p_ret);
-void tls_prf(
-    HashAlgorithm type, 
-    const void *secret, size_t secret_length,
-    const void *label, size_t label_length, 
-    const void *seed, size_t seed_length,
-    void *p_res, size_t res_length);
+uint8_t *str_cat_(const void *str1, size_t l1, const void *str2, size_t l2, void *buffer);
 
+size_t tls_hmac(HashAlgorithm type, const void *key, size_t key_length,
+                const void *p_data, size_t data_length, void *p_ret);
 
-void tls_aes_128_CBC_encrypto(
-    const void *key, const void *iv, 
-    void *p_data, size_t data_length);
-void tls_aes_128_CBC_decrypto(
-    const void *key, const void *iv, 
-    void *p_data, size_t data_length);
+void tls_prf(HashAlgorithm type, const void *secret, size_t secret_length,
+             const void *label, size_t label_length, const void *seed, size_t seed_length,
+             void *p_res, size_t res_length);
 
-void tls_aes_128_GCM_encrypto(
-    const void *key, const void *nonce,
-    const void *auth, size_t auth_length,
-    void *p_data, size_t data_length, 
-    void *auth_tag);
-size_t tls_aes_128_GCM_decrypto(
-    const void *key, const void *nonce,
-    const void *auth, size_t auth_length,
-    void *p_data, size_t data_length, 
-    const void *auth_tag);
+void tls_aes_128_CBC_encrypto(const void *key, const void *iv, void *p_data, size_t data_length);
+void tls_aes_128_CBC_decrypto(const void *key, const void *iv, void *p_data, size_t data_length);
+
+void tls_aes_128_GCM_encrypto(const void *key, const void *nonce,
+                              const void *auth, size_t auth_length, void *p_data, size_t data_length,
+                              void *auth_tag);
+                              
+size_t tls_aes_128_GCM_decrypto(const void *key, const void *nonce,
+                                const void *auth, size_t auth_length, void *p_data, size_t data_length,
+                                const void *auth_tag);
 
 // certification defines and consts.
 // cert ASN.1 language support:
@@ -117,19 +96,18 @@ struct ASN_OID {
     uint32_t oid_val[16];
     size_t oid_num;
 };
-const ASN_OID sha1WithRSAEncryption {
+const ASN_OID sha1WithRSAEncryption{
     {1, 2, 840, 113549, 1, 1, 5},
-    7
-};
-const ASN_OID sha256WithRSAEncryption {
+    7};
+const ASN_OID sha256WithRSAEncryption{
     {1, 2, 840, 113549, 1, 1, 11},
-    7
-};
-const ASN_OID rsaEncryption {
+    7};
+const ASN_OID rsaEncryption{
     {1, 2, 840, 113549, 1, 1, 1},
-    7
-};
+    7};
 
-
+size_t RSA_get_R(const uint8_t *N, size_t N_bytes);
+void RSA_get_prime_N(const uint8_t *N, size_t N_bytes, size_t R_bits,
+                     uint8_t *res, size_t res_max_bytes);
 
 #endif
