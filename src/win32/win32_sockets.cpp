@@ -1,15 +1,9 @@
-#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
 
-#include <WinSock2.h>
-#include <bcrypt.h>
-
-#pragma comment(lib, "ws2_32.lib")
-#pragma comment(lib, "Bcrypt.lib")
-
 #include "win32_sockets.h"
+
 
 // get length-bytes random to fill p_rand buff.
 void win32get_random(void* p_rand, size_t length) {
@@ -70,6 +64,7 @@ size_t win32sockets_send(SOCKET sock, const void *p_send, size_t length) {
         }
         send_bytes += (size_t)send_ret;
     } while (send_bytes < length);
+    return send_bytes;
 } 
 
 size_t win32sockets_recv(SOCKET sock, void *p_recv, size_t length) {
@@ -89,6 +84,7 @@ size_t win32sockets_recv(SOCKET sock, void *p_recv, size_t length) {
         }
         recv_bytes += (size_t)recv_ret;
     } while (recv_bytes < length);
+    return recv_bytes;
 }
 
 void win32sockets_close(SOCKET sock) {

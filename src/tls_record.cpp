@@ -328,4 +328,5 @@ size_t tls_record_recv(
     } else {
 
     } // aead_cipher.
+    return size_t();
 }
