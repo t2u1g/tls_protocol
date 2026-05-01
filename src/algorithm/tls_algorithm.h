@@ -106,7 +106,25 @@ const ASN_OID rsaEncryption{
     {1, 2, 840, 113549, 1, 1, 1},
     7};
 
-size_t RSA_get_R(const uint8_t *N, size_t N_bytes);
+size_t long_number_bitwidth(const uint8_t *N, size_t N_bytes);
+bool long_number_is_zero(const uint8_t *a, size_t a_bytes);
+int long_number_compare(
+    const uint8_t *a, size_t a_bytes, const uint8_t *b, size_t b_bytes);
+bool long_number_left_shift(uint8_t *a, size_t a_bytes, size_t shift_bits);
+void long_number_right_shift(uint8_t *a, size_t a_bytes, size_t shift_bits);
+bool long_number_plus(uint8_t *a, size_t a_bytes, const uint8_t *b, size_t b_bytes);
+bool long_number_mul(
+    const uint8_t *a, size_t a_bytes, const uint8_t *b, size_t b_bytes,
+    uint8_t *res, size_t res_max_bytes);
+void long_number_negiv(uint8_t *a, size_t a_bytes);
+bool long_number_dec(uint8_t *a, size_t a_bytes, const uint8_t *b, size_t b_bytes, uint8_t *buff);
+uint8_t long_number_divu8(uint8_t *a, size_t a_bytes, uint8_t div);
+
+void long_number_debug_print(const uint8_t *a, size_t a_bytes);
+void long_number_debug_print_hex(const uint8_t *a, size_t a_bytes);
+size_t long_number_debug_input(uint8_t **res, const char *str);
+size_t long_number_debug_input_hex(uint8_t **res, const char* str);
+
 void RSA_get_prime_N(const uint8_t *N, size_t N_bytes, size_t R_bits,
                      uint8_t *res, size_t res_max_bytes);
 

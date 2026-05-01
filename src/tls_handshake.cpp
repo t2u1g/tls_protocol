@@ -2,11 +2,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <Windows.h>
+// #include <Windows.h>
 
 #include "tls_record.h"
-#include "tls_common.h"
-#include "./win32/win32_sockets.h"
+// #include "tls_common.h"
+// #include "./win32/win32_sockets.h"
 
 // this file contains heght level protocol-handshaking related.
 

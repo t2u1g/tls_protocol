@@ -52,20 +52,6 @@ const CipherSuiteParams TlsCipherSuiteParams[TlsCipherSuiteNumbers] = {
     {Hash_sha256, Ciper_aead, ECDHE, Cert_rsa}
 };
 
-
-enum HandShakeType : uint8_t{
-    hello_request = 0, 
-    client_hello = 1, 
-    server_hello = 2,           
-    certificate = 11, 
-    server_key_exchange = 12,           
-    certificate_request = 13, 
-    server_hello_done = 14,           
-    certificate_verify = 15, 
-    client_key_exchange = 16,           
-    finished = 20
-};
-
 /*
 #pragma pack(1)
 struct Hadshake{
@@ -74,30 +60,26 @@ struct Hadshake{
     uint8_t body[];
 };
 
-#pragma pack(1)
 struct HelloRequestBody {};
-#pragma pack(1)
 struct Random{
     uint32_t gmt_unix_time;
     uint8_t random_byte[28];
 };
-#pragma pack(1)
 struct SessionID {
     uint8_t id_length;
     uint8_t id[];
 };
-#pragma pack(1)
 struct CiperSuite {
     uint16_t suite_length;
     uint16_t suites[];
 };
-#pragma pack(1)
 struct ClientHello {
     ProtocolVersion clinet_version;
     Random random;
     SessionID session_id;
     CiperSuite ciper_suite;
 };
+#pragma pack()
 
 enum ExtensionType : uint16_t{
     signature_algorithms = 13
@@ -107,6 +89,8 @@ struct Extension {
     ExtensionType extension_type;
     uint16_t extension_data_length;
     uint8_t extension_datas[];
-};*/ // such as structs. but c/cpp not support defines.
+};
+#pragma pack()
+*/ // such as structs. but c/cpp not support defines.
 
 #endif

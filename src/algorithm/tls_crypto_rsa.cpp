@@ -1,33 +1,66 @@
+#include <stdio.h>
 #include <string.h>
 #include <assert.h>
 #include <stdlib.h>
 
 #include "tls_algorithm.h"
 
+void long_number_extend(uint8_t **a, size_t a_bytes, size_t new_bytes, bool free_tag = true) {
+    uint8_t *res = (uint8_t*)calloc(new_bytes, 1);
+    if (a_bytes < new_bytes) {
+        memcpy(&res[new_bytes - a_bytes], a[0], a_bytes);
+    } else {
+        memcpy(res, a[0], new_bytes);
+    }
+    if (free_tag) {
+        free(a[0]);
+    }
+    a[0] = res;
+}
+
+bool long_number_is_zero(const uint8_t *a, size_t a_bytes) {
+    for (size_t i = 0; i < a_bytes; i++) {
+        if (a[i] != 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// returns number's hitgt bits width
+size_t long_number_bitwidth(const uint8_t *a, size_t a_bytes) {
+    for (size_t i = 0; i < a_bytes; i++) {
+        if (a[i] != 0) {
+            if (a[i] & 0x80 != 0) {
+                return (a_bytes - i) * 8;
+            }
+            for (size_t j = 1; j < 8; j++) {
+                if ((a[i] & 0x80) >> j != 0) {
+                    return (a_bytes - i - 1) * 8 + (8 - j);
+                }
+            }
+        }
+    }
+    return 0;
+}
+
 int long_number_compare(
     const uint8_t *a, size_t a_bytes, const uint8_t *b, size_t b_bytes) {
     ;
-    size_t ne_bytes = 0;
-    for (; ne_bytes < a_bytes && ne_bytes < b_bytes; ne_bytes++) {
-        uint8_t a_ = a[a_bytes - 1 - ne_bytes];
-        uint8_t b_ = b[b_bytes - 1 - ne_bytes];
-        if (a_ != b_) {
-            return a_ > b_ ? 1 : -1;
-        }
-    }
-    if (ne_bytes == a_bytes) {
-        for (; ne_bytes < b_bytes; ne_bytes++) {
-            if (b[b_bytes - 1 - ne_bytes] != 0) {
-                return -1;
+    size_t a_bits_ = long_number_bitwidth(a, a_bytes);
+    size_t b_bits_ = long_number_bitwidth(b, b_bytes);
+    if (a_bits_ > b_bits_) {
+        return 1;
+    } else if (a_bits_ < b_bits_) {
+        return -1;
+    } else if (a_bits_ != 0) {
+        size_t real_bytes_ = (a_bits_ + 0x07) >> 3;
+        for (size_t i = real_bytes_; i != 0; i--) {
+            if (a[a_bytes - i] != b[b_bytes - i]) {
+                return a[a_bytes - i] > b[b_bytes - i] ? 1 : -1;
             }
         }
-    } else {
-        for (; ne_bytes < a_bytes; ne_bytes++) {
-            if (a[a_bytes - 1 - ne_bytes] != 0) {
-                return 1;
-            }
-        }
-    }
+    } // a_bytes == b_bytes
     return 0;
 }
 
@@ -65,7 +98,7 @@ bool long_number_plus(uint8_t *a, size_t a_bytes, const uint8_t *b, size_t b_byt
             return false;
         }
     }
-    return true;
+    return carry_;
 }
 
 static inline void swap_u64(void *a, void *b) {
@@ -90,7 +123,7 @@ bool long_number_mul(
         uint16_t carry_ = 0;
         size_t j = 0;
         for (; j < b_total
-               && res_max_bytes - i - j == 0;
+               && res_max_bytes - i - j != 0;
              j++, carry_ >>= 8) {
             carry_ += a[a_bytes - 1 - i] * b[b_bytes - 1 - j];
             carry_ += res[res_max_bytes - 1 - i - j];
@@ -109,15 +142,12 @@ static inline void long_number_negiv_(uint8_t *a, size_t a_bytes) {
     uint16_t carry_ = 0;
     for (size_t i = 0; i < a_bytes; a++, carry_ >>= 8) {
         carry_ += a[a_bytes - 1 - i] + 0xFF;
-        a[a_bytes - 1 - i] = carry_ & 0x07;
+        a[a_bytes - 1 - i] = ~(carry_ & 0x07);
     }
 }
 void long_number_negiv(uint8_t *a, size_t a_bytes) {
     if (a[0] & 0x80 != 0) {
         long_number_negiv_(a, a_bytes);
-        for (size_t i = 0; i < a_bytes; i++) {
-            a[i] = ~a[i];
-        }
     } else {
         for (size_t i = 0; i < a_bytes; i++) {
             a[i] = ~a[i];
@@ -135,15 +165,13 @@ bool long_number_dec(uint8_t *a, size_t a_bytes, const uint8_t *b, size_t b_byte
     return long_number_plus(a, a_bytes, buff, b_bytes);
 }
 
-size_t long_number_divu8(uint8_t *a, size_t a_bytes, uint8_t div, uint8_t *rem_res) {
+uint8_t long_number_divu8(uint8_t *a, size_t a_bytes, uint8_t div) {
     uint16_t remainder_ = 0;
-    size_t j = 0;
     for (size_t i = 0; i < a_bytes; i++, remainder_ <<= 8) {
         remainder_ += a[i];
         a[i] = remainder_ / div, remainder_ %= div;
-        rem_res && (rem_res[j++] = (remainder_ & 0xFF));
     }
-    return rem_res ? j : (remainder_ >> 8);
+    return (remainder_ >> 8) & 0xFF;
 }
 
 // bits is low bits to save.
@@ -166,6 +194,124 @@ size_t long_number_gcd(
     return size_t();
 }
 
+// returns 2^{power} mod 'mod', buff_bytes atleast is double bigger than mod_bytes
+void long_number_exp_mod(
+    size_t power, const uint8_t *mod, size_t mod_bytes,
+    uint8_t *res, size_t res_max_bytes, uint8_t *buff) {
+    ;
+    // assert(buff_bytes >= 2 * mod_bytes);
+    memset(res, 0, res_max_bytes);
+    size_t mod_bits = long_number_bitwidth(mod, mod_bytes);
+    assert(res_max_bytes > mod_bytes && mod_bits != 0);
+    if (mod_bits > power) {
+        res[res_max_bytes - 1 - (power >> 3)] = 0x01 << (power & 0x07);
+        return;
+    }
+    res[res_max_bytes - 1 - (mod_bits >> 3)] = 0x01 << (mod_bits & 0x07);
+    while (long_number_compare(res, res_max_bytes, mod, mod_bytes) != -1) {
+        long_number_dec(res, res_max_bytes, mod, mod_bytes, buff);
+    }
+    if (long_number_is_zero(res, res_max_bytes - 1)
+        && (res[res_max_bytes - 1] == 0x01
+            || res[res_max_bytes - 1] == 0x00)) {
+        return;
+    }
+    for (size_t i = 0; i < power - mod_bits; i++) {
+        ; // logic error!
+    }
+}
+
+void long_number_debug_print(const uint8_t *a, size_t a_bytes) {
+    size_t buff_size = 2 * a_bytes;
+    uint8_t *buff = (uint8_t*)calloc(buff_size, 1);
+    memcpy(buff, a, a_bytes);
+    size_t j = 0;
+    while (true) {
+        if (buff_size - a_bytes == j) {
+            buff = (uint8_t*)realloc(buff, buff_size + a_bytes);
+            buff_size += a_bytes;
+        }
+        buff[a_bytes + j] = long_number_divu8(buff, a_bytes, 10);
+        if (long_number_is_zero(buff, a_bytes)) {
+            break;
+        }
+        j++;
+    }
+    for (size_t i = 0; i <= j; i++) {
+        printf("%c", '0' + buff[a_bytes + j - i]);
+    }
+    printf("\n");
+    free(buff);
+}
+void long_number_debug_print_hex(const uint8_t *a, size_t a_bytes) {
+    size_t i = 0;
+    for (; a[i] == 0 && i < a_bytes; i++) {
+        ;
+    }
+    for (; i < a_bytes; i++) {
+        printf("%02x", a[i]);
+    }
+    printf("\n");
+}
+size_t long_number_debug_input(uint8_t **res, const char *str) {
+    size_t str_len = strlen(str);
+    size_t buff_size = str_len, res_size = str_len;
+    uint8_t *buff = (uint8_t*)calloc(str_len, 1), *buff1 = (uint8_t *)calloc(str_len, 1);
+    uint8_t *res_ = (uint8_t*)calloc(str_len, 1), mul_base = 10;
+    buff[buff_size - 1] = 0x01;
+    for (size_t i = 0; i < str_len; i++) {
+        uint8_t num_val = str[str_len - 1 - i] - '0'; // number_val
+        assert(!long_number_mul(buff, buff_size, &num_val, 1, buff1, buff_size));
+        if (buff1[0] != 0) {
+            long_number_extend(&buff, buff_size, buff_size + str_len);
+            long_number_extend(&buff1, buff_size, buff_size + str_len);
+            buff_size += str_len;
+        }
+        assert(long_number_plus(res_, res_size, buff1, buff_size));
+        if (res_[0] != 0) {
+            long_number_extend(&res_, res_size, res_size + str_len);
+            res_size += str_len;
+        }
+
+        memset(buff1, 0, buff_size);
+        assert(!long_number_mul(buff, buff_size, &mul_base, 1, buff1, buff_size));
+        if (buff1[0] != 0) {
+            long_number_extend(&buff, buff_size, buff_size + str_len);
+            long_number_extend(&buff1, buff_size, buff_size + str_len);
+            buff_size += str_len;
+        }
+        memset(buff, 0, buff_size);
+        swap_u64(&buff, &buff1);
+    }
+    free(buff), free(buff1);
+    res[0] = res_;
+    return res_size;
+}
+static inline uint8_t read_u8_from_str2(const char *str) {
+    char tmp_str[3] = {str[0], str[1], '\0'};
+    char *end = NULL;
+    long value = strtol(tmp_str, &end, 16);
+    assert(end[0] == '\0');
+    return (uint8_t)value;
+}
+size_t long_number_debug_input_hex(uint8_t **res, const char* str) {
+    size_t res_length = strlen(str);
+    uint8_t *res_buff = (uint8_t*)calloc((res_length + 1) / 2, 1);
+    if (res_length & 0x01 != 0) {
+        char tmp_str[2] = {'0', str[0]};
+        res_buff[0] = read_u8_from_str2(tmp_str);
+        for (size_t i = 1; i < (res_length + 1) / 2; i++) {
+            res_buff[i] = read_u8_from_str2(&str[i * 2 + 1]);
+        }
+    } else {
+        for (size_t i = 0; i < res_length / 2; i++) {
+            res_buff[i] = read_u8_from_str2(&str[i * 2]);
+        }
+    }
+    res[0] = res_buff;
+    return (res_length + 1) / 2;
+}
+
 struct MG_ctx {
     const uint8_t *N;
     uint8_t *N_prime;
@@ -175,15 +321,15 @@ struct MG_ctx {
     size_t buff_size;
 };
 
-MG_ctx* MG_ctx_init(const uint8_t *N, size_t N_bytes, size_t reserved) {
-    MG_ctx *ret = (MG_ctx*)calloc(sizeof(MG_ctx), 1);
-    ret->buff = (uint8_t*)calloc(N_bytes + 1, 1);
-    ret->buff1 = (uint8_t*)calloc(N_bytes + 1, 1);
-    ret->buff2 = (uint8_t*)calloc(N_bytes + 1, 1);
-    ret->N_prime = (uint8_t*)calloc(N_bytes, 1);
+MG_ctx *MG_ctx_init(const uint8_t *N, size_t N_bytes, size_t reserved) {
+    MG_ctx *ret = (MG_ctx *)calloc(sizeof(MG_ctx), 1);
+    ret->buff = (uint8_t *)calloc(N_bytes + 1, 1);
+    ret->buff1 = (uint8_t *)calloc(N_bytes + 1, 1);
+    ret->buff2 = (uint8_t *)calloc(N_bytes + 1, 1);
+    ret->N_prime = (uint8_t *)calloc(N_bytes, 1);
     ret->buff_size = N_bytes + 1;
 
-    ret->R_bits = RSA_get_R(N, N_bytes);
+    ret->R_bits = long_number_bitwidth(N, N_bytes);
     ret->N_bytes = N_bytes;
     assert(ret->R_bits != 0);
     ret->N = N;
@@ -239,24 +385,6 @@ bool MG_plus(
     return true;
 }
 
-// returns R's bits of left_shift
-size_t RSA_get_R(const uint8_t *N, size_t N_bytes) {
-    for (size_t i = 0; i < N_bytes; i++) {
-        if (N[i] != 0) {
-            // N_bytes - i - 1; // bytes total
-            if (N[i] & 0x80 != 0) {
-                return (N_bytes - i) * 8;
-            }
-            for (size_t j = 1; j < 8; j++) {
-                if ((N[i] & 0x80) >> j != 0) {
-                    return (N_bytes - i - 1) * 8 + (8 - j);
-                }
-            }
-        }
-    }
-    return 0;
-}
-
 // returns N_prime N === -1 mod R., R_bits is left_shift bits for R.
 void RSA_get_prime_N(
     const uint8_t *N, size_t N_bytes, size_t R_bits,
@@ -280,10 +408,11 @@ void RSA_get_prime_N(
 
 // N in ctx, e is power in algorithm.
 bool RSA_exp_mod(
-    const uint8_t *msg, size_t msg_bytes, MG_ctx *ctx, size_t e, 
+    const uint8_t *msg, size_t msg_bytes, MG_ctx *ctx, size_t e,
     uint8_t *res, size_t res_max_bytes) {
     ;
     assert(res_max_bytes >= ctx->N_bytes && msg_bytes <= ctx->N_bytes);
     uint8_t *buff = (uint8_t *)calloc(ctx->N_bytes, 1);
-
+    
+    return bool();
 }

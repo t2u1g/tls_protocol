@@ -33,7 +33,7 @@ size_t ASN_length_parser(const uint8_t *p_len, size_t max_length, size_t *result
     if (0 == max_length) {
         return (size_t)-1;
     }
-    if (0x80 & p_len[0] == 0) {
+    if ((0x80 & p_len[0]) == 0) {
         result[0] = p_len[0];
         return 1;
     } else {
@@ -224,12 +224,12 @@ size_t x509v3_signed_with_cert(
     const uint8_t *data, size_t data_length, 
     const uint8_t **res) {
     ;
-
+    return size_t();
 }
 
 // this function check cert with another cert
 size_t x509v3_check_cert_sign(CERT_UNPACK *cert, CERT_UNPACK *ca) {
-    ;
+    return size_t();
 }
 
 #undef RET_CHECK
