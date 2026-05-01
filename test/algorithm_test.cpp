@@ -67,13 +67,28 @@ void long_number_test(const char* str1, const char *str2) {
     uint8_t *buff3 = (uint8_t*)calloc(res3, 1);
     memcpy(&buff3[res3 - res1], buff1, res1);
     long_number_plus(buff3, res3, buff2, res2);
-    long_number_debug_print_hex(buff3, res3);
+    // long_number_debug_print_hex(buff3, res3);
+    printf("val1 + val2: ");
     long_number_debug_print(buff3, res3);
 
     memset(buff3, 0, res3);
     long_number_mul(buff1, res1, buff2, res2, buff3, res3);
-    long_number_debug_print_hex(buff3, res3);
+    // long_number_debug_print_hex(buff3, res3);
+    printf("val1 * val2: ");
     long_number_debug_print(buff3, res3);
+    
+    uint8_t *buff4 = (uint8_t*)calloc(res1, 1);
+    uint8_t *buff5 = (uint8_t*)calloc(res1, 1);
+    memset(buff3, 0, res3);
+    long_number_div(buff1, res1, buff2, res2, buff3, res3, buff4, buff5);
+    printf("val1 / val2: ");
+    long_number_debug_print(buff1, res1);
+    printf("val1 %% val2: ");
+    long_number_debug_print(buff3, res3);
+
+    free(buff1), free(buff2);
+    free(buff3), free(buff4);
+    free(buff5);
 }
 
 int main(int argc, char **argv) {
@@ -82,6 +97,6 @@ int main(int argc, char **argv) {
     }
     // long_number_io_test(argv[1]);
     // long_number_io_test1(argv[1]);
-    // long_number_test(argv[1], argv[2]);
+    long_number_test(argv[1], argv[2]);
     return 0;
 }

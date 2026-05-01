@@ -31,11 +31,11 @@ bool long_number_is_zero(const uint8_t *a, size_t a_bytes) {
 size_t long_number_bitwidth(const uint8_t *a, size_t a_bytes) {
     for (size_t i = 0; i < a_bytes; i++) {
         if (a[i] != 0) {
-            if (a[i] & 0x80 != 0) {
+            if ((a[i] & 0x80) != 0) {
                 return (a_bytes - i) * 8;
             }
             for (size_t j = 1; j < 8; j++) {
-                if ((a[i] & 0x80) >> j != 0) {
+                if ((a[i] & (0x80 >> j)) != 0) {
                     return (a_bytes - i - 1) * 8 + (8 - j);
                 }
             }
@@ -67,12 +67,13 @@ int long_number_compare(
 bool long_number_left_shift(uint8_t *a, size_t a_bytes, size_t shift_bits) {
     size_t shift_bytes = shift_bits >> 3; // throws away bytes.
     assert((shift_bits + 0x07) >> 3 <= a_bytes);
-    a[0] = a[shift_bytes] << (shift_bits & 0x07);
     bool ret_ = a[shift_bytes] >> (8 - (shift_bits & 0x07));
-    for (size_t i = 1; i < a_bytes - shift_bytes; i++) {
+    for (size_t i = 0; i < a_bytes - shift_bytes - 1; i++) {
         a[i] = a[shift_bytes + i] << (shift_bits & 0x07);
-        a[i - 1] |= a[shift_bytes + i] >> (8 - (shift_bytes & 0x07));
+        a[i] |= a[shift_bytes + i + 1] >> (8 - (shift_bits & 0x07));
     }
+    a[a_bytes - shift_bytes - 1] = a[a_bytes - 1] << (shift_bits & 0x07);
+    memset(&a[a_bytes - shift_bytes], 0, shift_bytes);
     return ret_;
 }
 
@@ -84,6 +85,7 @@ void long_number_right_shift(uint8_t *a, size_t a_bytes, size_t shift_bits) {
         a[a_bytes - 1 - i] = a[a_bytes - 1 - shift_bytes - i] >> (shift_bits & 0x07);
         a[a_bytes - i] |= a[a_bytes - 1 - shift_bytes - i] << (8 - (shift_bits & 0x07));
     }
+    memset(a, 0, shift_bytes);
 }
 
 bool long_number_plus(uint8_t *a, size_t a_bytes, const uint8_t *b, size_t b_bytes) {
@@ -174,6 +176,46 @@ uint8_t long_number_divu8(uint8_t *a, size_t a_bytes, uint8_t div) {
     return (remainder_ >> 8) & 0xFF;
 }
 
+static inline bool read_bit(const uint8_t *a, size_t a_bytes, size_t bits) {
+    assert(((bits + 0x07) >> 3) <= a_bytes);
+    return a[a_bytes - 1 - (bits >> 3)] & ((0x01) << (bits & 0x07));
+}
+static inline void write_bit(uint8_t *a, size_t a_bytes, size_t bits, bool bit) {
+    assert(((bits + 0x07) >> 3) <= a_bytes);
+    if (bit) {
+        a[a_bytes - 1 - (bits >> 3)] |= ((0x01) << (bits & 0x07));
+    } else {
+        a[a_bytes - 1 - (bits >> 3)] &= ~((0x01) << (bits & 0x07));
+    }
+}
+// res saves deminate number. returns deminate number bytes
+void long_number_div(
+    uint8_t *a, size_t a_bytes, const uint8_t *b, size_t b_bytes,
+    uint8_t *res, size_t res_max_bytes, uint8_t *buff, uint8_t *buff1) {
+    ;
+    assert(res_max_bytes >= b_bytes && res_max_bytes >= a_bytes);
+    //assert(buff_bytes == a_bytes)
+    if (-1 == long_number_compare(a, a_bytes, b, b_bytes)) {
+        memcpy(&res[res_max_bytes - a_bytes], a, a_bytes);
+        memset(a, 0, a_bytes);
+        return ;
+    }
+    size_t a_bits = long_number_bitwidth(a, a_bytes);
+    for (size_t i = 0; i < a_bits; i++) {
+        long_number_left_shift(buff, a_bytes, 1);
+        if (read_bit(a, a_bytes, a_bits - 1 - i)) {
+            buff[a_bytes - 1] |= 0x01;
+        }
+        if (-1 != long_number_compare(buff, a_bytes, b, b_bytes)) {
+            long_number_dec(buff, a_bytes, b, b_bytes, buff1);
+            write_bit(res, res_max_bytes, a_bits - 1 - i, true);
+        }
+    }
+    memcpy(a, &res[res_max_bytes - a_bytes], a_bytes);
+    memset(res, 0, res_max_bytes);
+    memcpy(&res[res_max_bytes - a_bytes], buff, a_bytes);
+}
+
 // bits is low bits to save.
 void long_number_mod_2pow(uint8_t *a, size_t a_bytes, size_t bits) {
     size_t bytes = (bits + 0x07) >> 3;
@@ -182,7 +224,7 @@ void long_number_mod_2pow(uint8_t *a, size_t a_bytes, size_t bits) {
     for (size_t i = 0; i < (bits & 0x07); i++) {
         bitmask |= (0x01 << i);
     }
-    a[a_bytes - bytes] &= ~bitmask;
+    a[a_bytes - bytes] &= bitmask;
 }
 
 size_t long_number_gcd(

@@ -119,6 +119,10 @@ bool long_number_mul(
 void long_number_negiv(uint8_t *a, size_t a_bytes);
 bool long_number_dec(uint8_t *a, size_t a_bytes, const uint8_t *b, size_t b_bytes, uint8_t *buff);
 uint8_t long_number_divu8(uint8_t *a, size_t a_bytes, uint8_t div);
+void long_number_div(
+    uint8_t *a, size_t a_bytes, const uint8_t *b, size_t b_bytes,
+    uint8_t *res, size_t res_max_bytes, uint8_t *buff, uint8_t *buff1);
+void long_number_mod_2pow(uint8_t *a, size_t a_bytes, size_t bits);
 
 void long_number_debug_print(const uint8_t *a, size_t a_bytes);
 void long_number_debug_print_hex(const uint8_t *a, size_t a_bytes);
