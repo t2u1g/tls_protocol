@@ -5,6 +5,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(MAIN_FILES
+src/tools/long_number.cpp
+src/tools/memory_pool.cpp
 src/algorithm/tls_hash.cpp
 src/algorithm/tls_crypto_aes.cpp
 src/algorithm/tls_crypto_rsa.cpp

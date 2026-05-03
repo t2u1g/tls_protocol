@@ -2,6 +2,7 @@
 #define __TLS_ALGORITHM_H__
 
 #include <stdint.h>
+#include "./../tools/tools.h"
 
 size_t hash_null_func(const void *p_data, size_t length, void *p_ret);
 size_t sha1_calculate(const void *p_data, size_t length, void *p_ret);
@@ -35,23 +36,13 @@ const pf_hash HashFnucTable[7] = {
 
 uint8_t *str_cat_(const void *str1, size_t l1, const void *str2, size_t l2, void *buffer);
 
-size_t tls_hmac(HashAlgorithm type, const void *key, size_t key_length,
-                const void *p_data, size_t data_length, void *p_ret);
-
-void tls_prf(HashAlgorithm type, const void *secret, size_t secret_length,
-             const void *label, size_t label_length, const void *seed, size_t seed_length,
-             void *p_res, size_t res_length);
+size_t tls_hmac(HashAlgorithm type, const void *key, size_t key_length, const void *p_data, size_t data_length, void *p_ret);
+void tls_prf(HashAlgorithm type, const void *secret, size_t secret_length, const void *label, size_t label_length, const void *seed, size_t seed_length, void *p_res, size_t res_length);
 
 void tls_aes_128_CBC_encrypto(const void *key, const void *iv, void *p_data, size_t data_length);
 void tls_aes_128_CBC_decrypto(const void *key, const void *iv, void *p_data, size_t data_length);
-
-void tls_aes_128_GCM_encrypto(const void *key, const void *nonce,
-                              const void *auth, size_t auth_length, void *p_data, size_t data_length,
-                              void *auth_tag);
-                              
-size_t tls_aes_128_GCM_decrypto(const void *key, const void *nonce,
-                                const void *auth, size_t auth_length, void *p_data, size_t data_length,
-                                const void *auth_tag);
+void tls_aes_128_GCM_encrypto(const void *key, const void *nonce, const void *auth, size_t auth_length, void *p_data, size_t data_length, void *auth_tag);          
+size_t tls_aes_128_GCM_decrypto(const void *key, const void *nonce, const void *auth, size_t auth_length, void *p_data, size_t data_length, const void *auth_tag);
 
 // certification defines and consts.
 // cert ASN.1 language support:
@@ -106,30 +97,10 @@ const ASN_OID rsaEncryption{
     {1, 2, 840, 113549, 1, 1, 1},
     7};
 
-size_t long_number_bitwidth(const uint8_t *N, size_t N_bytes);
-bool long_number_is_zero(const uint8_t *a, size_t a_bytes);
-int long_number_compare(
-    const uint8_t *a, size_t a_bytes, const uint8_t *b, size_t b_bytes);
-bool long_number_left_shift(uint8_t *a, size_t a_bytes, size_t shift_bits);
-void long_number_right_shift(uint8_t *a, size_t a_bytes, size_t shift_bits);
-bool long_number_plus(uint8_t *a, size_t a_bytes, const uint8_t *b, size_t b_bytes);
-bool long_number_mul(
-    const uint8_t *a, size_t a_bytes, const uint8_t *b, size_t b_bytes,
-    uint8_t *res, size_t res_max_bytes);
-void long_number_negiv(uint8_t *a, size_t a_bytes);
-bool long_number_dec(uint8_t *a, size_t a_bytes, const uint8_t *b, size_t b_bytes, uint8_t *buff);
-uint8_t long_number_divu8(uint8_t *a, size_t a_bytes, uint8_t div);
-void long_number_div(
-    uint8_t *a, size_t a_bytes, const uint8_t *b, size_t b_bytes,
-    uint8_t *res, size_t res_max_bytes, uint8_t *buff, uint8_t *buff1);
-void long_number_mod_2pow(uint8_t *a, size_t a_bytes, size_t bits);
-
-void long_number_debug_print(const uint8_t *a, size_t a_bytes);
-void long_number_debug_print_hex(const uint8_t *a, size_t a_bytes);
-size_t long_number_debug_input(uint8_t **res, const char *str);
-size_t long_number_debug_input_hex(uint8_t **res, const char* str);
-
-void RSA_get_prime_N(const uint8_t *N, size_t N_bytes, size_t R_bits,
-                     uint8_t *res, size_t res_max_bytes);
+void RSA_get_prime_N(const uint8_t *N, size_t N_bytes, size_t N_bits, uint8_t *res, size_t res_max_bytes, MEMORY_POOL *pool);
+void RSA_get_MG_conv_const(const uint8_t *N, size_t N_bytes, size_t N_bits, uint8_t *res, size_t res_max_size, MEMORY_POOL *pool);
+MG_CONTEXT *RSA_MG_ctx_init(const uint8_t *N, size_t N_bytes);
+void RSA_MG_ctx_delete(MG_CONTEXT *ctx);
+void RSA_exp_mod(const uint8_t *msg, size_t msg_bytes, size_t e, uint8_t *res, size_t res_max_bytes, MG_CONTEXT *ctx);
 
 #endif
