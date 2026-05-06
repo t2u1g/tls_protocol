@@ -1,3 +1,4 @@
 build/
-test/connect_test.cpp
 CMakePresets.json
+
+test/openssl_test/test_cnosts.h
